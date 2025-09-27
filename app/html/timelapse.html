@@ -188,28 +188,51 @@ $(document).ready(function() {
         });
 
     // Fetch app details and populate resolutions
-    $.ajax({
-        type: "GET",
-        url: 'app',
-        dataType: 'json',
-        cache: false,
-        success: function(app) {
-            document.title = app.manifest.acapPackageConf.setup.friendlyName;
-            $('.sidebar-heading').text(app.manifest.acapPackageConf.setup.friendlyName);
-           
-            const resolutions = app.device.resolutions[app.device.aspect];
-            const dropdown = document.getElementById('resolution');
-            resolutions.forEach(res => {
-                const option = document.createElement('option');
-                option.value = res;
-                option.textContent = res;
-                dropdown.appendChild(option);
-            });
+
+	$.ajax({
+		type: "GET",
+		url: '/axis-cgi/param.cgi?action=list&group=Properties.Image.Resolution',
+		dataType: 'text',
+		cache: false,
+		success: function(data) {
+			// Extract the resolutions part after the equals sign
+			const resolutionsString = data.split('=')[1];
+			
+			// Split the string into an array of resolutions
+			const resolutions = resolutionsString.split(',');
+			
+			// Get the dropdown element
+			const dropdown = document.getElementById('resolution');
+			
+			// Clear existing options (if any)
+			dropdown.innerHTML = '';
+			
+			// Add each resolution as an option
+			resolutions.forEach(res => {
+				const option = document.createElement('option');
+				option.value = res;
+				option.textContent = res;
+				dropdown.appendChild(option);
+			});
 		},
 		error: function(response) {
 			$('#errorModal').modal('show');
 		}
-    });
+	});
+
+	$.ajax({
+		type: "GET",
+		url: 'app',
+		dataType: 'json',
+		cache: false,
+		success: function(app) {
+			document.title = app.manifest.acapPackageConf.setup.friendlyName;
+			$('.sidebar-heading').text(app.manifest.acapPackageConf.setup.friendlyName);
+		},
+		error: function(response) {
+			$('#errorModal').modal('show');
+		}
+	});
 
 
     // Reset form when modal is closed

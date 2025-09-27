@@ -22,80 +22,86 @@
         </div>
     </div>
 
+    <div id="page-content-wrapper" class="p-0">
+        <div class="container-fluid">
+            <!-- User Input Section -->
+            <div class="p-4 mb-4 border rounded bg-light">
+                <h5 class="mb-3">Archive Settings</h5>
 
-	<div id="page-content-wrapper" class="p-0">
-		<div class="container-fluid">
-			<!-- User Input Section -->
-			<div class="p-4 mb-4 border rounded bg-light">
-				<h5 class="mb-3">Archive Settings</h5>
-				
-				<!-- Auto Archive Input Row -->
-				<div class="d-flex align-items-center mb-3">
-					<label for="archiveSize" class="me-2">Auto archive video when reached </label>
-					<select id="archiveSize" class="form-select form-select-sm me-2" style="width: auto;">
-						<option value="100">100 MB</option>
-						<option value="200">200 MB</option>
-						<option value="300">300 MB</option>
-						<option value="500" selected>500 MB</option>
-						<option value="750">750 MB</option>
-						<option value="1000">1 GB</option>
-					</select>
-					<span class="me-2">&nbsp; &nbsp; </span>
-					<label for="retentionMonths" class="me-2">Auto remove archives older than:</label>
-					<select id="retentionMonths" class="form-select form-select-sm" style="width: auto;">
-						<option value="1">1 month</option>
-						<option value="3">3 months</option>
-						<option value="6">6 months</option>
-						<option value="9">9 months</option>
-						<option value="12">12 months</option>
-					</select>
-				</div>
+                <!-- Archive Occurrence Section -->
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-1">
+                        <label for="archiveSize" class="me-2">Max archive file size:</label>
+                        <select id="archiveSize" class="form-select form-select-sm me-4" style="width:auto;">
+                            <option value="100">100 MB</option>
+                            <option value="200">200 MB</option>
+                            <option value="300">300 MB</option>
+                            <option value="500" selected>500 MB</option>
+                            <option value="750">750 MB</option>
+                            <option value="1000">1 GB</option>
+                        </select>
+                        <label for="archiveSplit" class="me-2">Or duration:</label>
+                        <select id="archiveSplit" class="form-select form-select-sm" style="width:auto;">
+                            <option value="era" selected>- </option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                        </select>
+                    </div>
+                    <small class="text-muted">A new archive will be created when size or duration limit is reached, whichever comes first.</small>
+                </div>
 
-				<!-- Retention Input Row -->
-				<div class="d-flex align-items-center">
-				</div>
-			</div>
+                <!-- Retention Section -->
+                <div>
+                    <label for="retentionMonths" class="me-2">Auto-remove archives older than:</label>
+                    <select id="retentionMonths" class="form-select form-select-sm" style="width:auto;">
+                        <option value="1">1 month</option>
+                        <option value="3">3 months</option>
+                        <option value="6">6 months</option>
+                        <option value="9">9 months</option>
+                        <option value="12">12 months</option>
+                    </select>
+                </div>
+            </div>
 
-			<!-- Table Section -->
-			<div class="table-responsive mt-4">
-				<table class="table table-striped">
-					<thead>
-						<tr>
-							<th>Recording</th>
-							<th>Images</th>
-							<th>Size</th>
-							<th>Last Capture</th>
-							<th>First Capture</th>
-							<th>Actions</th>
-						</tr>
-					</thead>
-					<tbody id="recordings-list"></tbody>
-				</table>
-			</div>
-		</div>
-	</div>
+            <!-- Table Section -->
+            <div class="table-responsive mt-4">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Recording</th>
+                            <th>Images</th>
+                            <th>Size</th>
+                            <th>Last Capture</th>
+                            <th>First Capture</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordings-list"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
-	<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
-		<div class="modal-dialog">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="errorModalLabel">Error</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body">
-					The application is not running.
-				</div>
-				<div class="modal-footer">
-					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-				</div>
-			</div>
-		</div>
-	</div>				
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="errorModalLabel">Error</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    The application is not running.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>              
 </div>
 
 <script>
-
-
 $(document).ready(function() {
     // Fetch app details
     $.ajax({
@@ -106,9 +112,9 @@ $(document).ready(function() {
         success: function(app) {
             document.title = app.manifest.acapPackageConf.setup.friendlyName;
             $('.sidebar-heading').text(app.manifest.acapPackageConf.setup.friendlyName);
-			$("#archiveSize").val(app.settings.archiveSize);
-			$("#archiveSplit").val(app.settings.archiveSplit);
-			$("#retentionMonths").val(app.settings.retentionMonths);
+            $("#archiveSize").val(app.settings.archiveSize);
+            $("#archiveSplit").val(app.settings.archiveSplit);
+            $("#retentionMonths").val(app.settings.retentionMonths);
         },
         error: function(response) {
             $('#errorModal').modal('show');
@@ -192,7 +198,7 @@ function downloadArchive(filename) {
     iframe.style.display = 'none';
     iframe.src = 'download?filename=' + encodeURIComponent(filename);
     document.body.appendChild(iframe);
-    
+
     // Remove iframe after download starts
     setTimeout(function() {
         document.body.removeChild(iframe);
@@ -233,7 +239,6 @@ function formatFileSize(bytes) {
         return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
     }
 }
-
 </script>
 </body>
 </html>

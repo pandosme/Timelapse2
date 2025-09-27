@@ -8,8 +8,29 @@
     <link rel="stylesheet" href="css/app.css">
     <script src="js/jquery-3.7.1.min.js"></script>
     <script src="js/bootstrap.bundle.min.js"></script>
+    <style>
+        #init-message {
+            z-index: 1055;
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: auto;
+            min-width: 250px;
+            padding: 1rem 2rem;
+            background: #fffbcc;
+            color: #333;
+            border: 1px solid #ffe58f;
+            border-radius: 6px;
+            box-shadow: 0 2px 10px 0 rgba(0,0,0,0.06);
+            text-align: center;
+            font-weight: 500;
+            display: none;
+        }
+    </style>
 </head>
 <body>
+<div id="init-message"></div>
 <div class="d-flex" id="wrapper">
     <div class="bg-light border-right" id="sidebar-wrapper">
         <div class="sidebar-heading"></div>
@@ -30,10 +51,9 @@
                         <tr>
                             <th>Profile Name</th>
                             <th>Images</th>
-							<th>Size</th>
+                            <th>Size</th>
                             <th>Last Capture</th>
                             <th>First Capture</th>
-                            <th>Last Archived</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -64,59 +84,95 @@
             </div>
         </div>
     </div>
-	<div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
-		<div class="modal-dialog">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="exportModalLabel">Export Recording</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body">
-					<form id="exportForm">
-						<div class="mb-3">
-							<label for="exportFilename" class="form-label">Filename</label>
-							<input type="text" class="form-control" id="exportFilename" required>
-						</div>
-						<div class="mb-3">
-							<label for="exportFps" class="form-label">Playback Frame Rate</label>
-							<input type="number" class="form-control" id="exportFps" value="10" min="1" max="60" required>
-						</div>
-						<input type="hidden" id="exportProfileId">
-					</form>
-				</div>
-				<div class="modal-footer">
-					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-					<button type="button" class="btn btn-primary" id="exportDownloadBtn">Download</button>
-				</div>
-			</div>
-		</div>
-	</div>
-	<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
-		<div class="modal-dialog">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="errorModalLabel">Error</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body">
-					The application is not running.
-				</div>
-				<div class="modal-footer">
-					<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-				</div>
-			</div>
-		</div>
-	</div>				
+    <div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exportModalLabel">Export Recording</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="exportForm">
+                        <div class="mb-3">
+                            <label for="exportFilename" class="form-label">Filename</label>
+                            <input type="text" class="form-control" id="exportFilename" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="exportFps" class="form-label">Playback Frame Rate</label>
+                            <input type="number" class="form-control" id="exportFps" value="10" min="1" max="60" required>
+                        </div>
+                        <input type="hidden" id="exportProfileId">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="exportDownloadBtn">Download</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="errorModalLabel">Error</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    The application is not running.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>                
 </div>
 
 <script>
 
 var TimelapseRecordings = 0;
 
+function pollSdcardStatus() {
+    var intervalId = null;
+    function checkStatus() {
+        $.ajax({
+            url: 'status',
+            method: 'GET',
+            cache: false,
+            dataType: 'json',
+            success: function(resp) {
+                if (resp && resp.sdcard && resp.sdcard.present) {
+                    $('#init-message').fadeOut();
+                    if (intervalId) {
+                        clearInterval(intervalId);
+                        intervalId = null;
+                    }
+                } else {
+                    let msg = resp && resp.sdcard && resp.sdcard.message ? resp.sdcard.message : 'Initializing, please wait...';
+                    $('#init-message').text(msg).fadeIn();
+                    if (!intervalId) {
+                        intervalId = setInterval(checkStatus, 1000);
+                    }
+                }
+            },
+            error: function() {
+                $('#init-message').text('Initializing, please wait...').fadeIn();
+                if (!intervalId) {
+                    intervalId = setInterval(checkStatus, 1000);
+                }
+            }
+        });
+    }
+    checkStatus();
+}
+
 $(document).ready(function() {
     let currentProfileId = null;
     let currentImageIndex = 1;
     let totalImages = 0;
+
+    pollSdcardStatus();
 
     // Fetch app details
     $.ajax({
@@ -127,10 +183,10 @@ $(document).ready(function() {
         success: function(app) {
             document.title = app.manifest.acapPackageConf.setup.friendlyName;
             $('.sidebar-heading').text(app.manifest.acapPackageConf.setup.friendlyName);
-		},
-		error: function(response) {
-			$('#errorModal').modal('show');
-		}
+        },
+        error: function(response) {
+            $('#errorModal').modal('show');
+        }
     });
 
     function formatDate(timestamp) {
@@ -139,33 +195,32 @@ $(document).ready(function() {
     }
 
     // Fetch both profiles and recordings
-	Promise.all([
-		$.ajax({ url: 'timelapse', type: 'GET' }),
-		$.ajax({ url: 'recordings', type: 'GET' })
-	]).then(function([profiles, recordings]) {
-		TimelapseRecordings = recordings;
-		const tbody = $('#recordings-list');
-		tbody.empty();
+    Promise.all([
+        $.ajax({ url: 'timelapse', type: 'GET' }),
+        $.ajax({ url: 'recordings', type: 'GET' })
+    ]).then(function([profiles, recordings]) {
+        TimelapseRecordings = recordings;
+        const tbody = $('#recordings-list');
+        tbody.empty();
 
-		Object.entries(recordings).forEach(([id, recording]) => {
-			const profile = profiles.find(p => p.id === id) || { name: 'Unknown Profile' };
-			var tr = '<tr>';
-			tr += '<td>' + profile.name + '</td>';
-			tr += '<td>' + recording.images + '</td>';
-			tr += '<td>' + formatFileSize(recording.size) + '</td>';
-			tr += '<td>' + formatDate(recording.last) + '</td>';
-			tr += '<td>' + formatDate(recording.first) + '</td>';
-			tr += '<td>' + formatDate(profile.archived) + '</td>';
-			tr += '<td>';
-			tr += '<button class="btn btn-sm btn-primary me-1" onclick="exportRecording(\'' + id + '\')">Download</button>';
-			tr += '<button class="btn btn-sm btn-success me-1" onclick="inspectRecording(\'' + id + '\')">Inspect</button>';
-			tr += '<button class="btn btn-sm btn-warning me-1" onclick="archiveRecording(\'' + id + '\')">Archive</button>'; // New Archive button
-			tr += '<button class="btn btn-sm btn-danger" onclick="flushRecording(\'' + id + '\')">Delete</button>';
-			tr += '</td>';
-			tr += '</tr>';
-			tbody.append(tr);
-		});
-	});
+        Object.entries(recordings).forEach(([id, recording]) => {
+            const profile = profiles.find(p => p.id === id) || { name: 'Unknown Profile' };
+            var tr = '<tr>';
+            tr += '<td>' + profile.name + '</td>';
+            tr += '<td>' + recording.images + '</td>';
+            tr += '<td>' + formatFileSize(recording.size) + '</td>';
+            tr += '<td>' + formatDate(recording.last) + '</td>';
+            tr += '<td>' + formatDate(recording.first) + '</td>';
+            tr += '<td>';
+            tr += '<button class="btn btn-sm btn-primary me-1" onclick="exportRecording(\'' + id + '\')">Download</button>';
+            tr += '<button class="btn btn-sm btn-success me-1" onclick="inspectRecording(\'' + id + '\')">Inspect</button>';
+            tr += '<button class="btn btn-sm btn-warning me-1" onclick="archiveRecording(\'' + id + '\')">Archive</button>'; // New Archive button
+            tr += '<button class="btn btn-sm btn-danger" onclick="flushRecording(\'' + id + '\')">Delete</button>';
+            tr += '</td>';
+            tr += '</tr>';
+            tbody.append(tr);
+        });
+    });
 
     function loadImage(index) {
         $('#inspectImage').attr('src', 'image?id=' + currentProfileId + '&index=' + index);
@@ -176,7 +231,6 @@ $(document).ready(function() {
     window.inspectRecording = function(id) {
         currentProfileId = id;
         currentImageIndex = 1;
-        
         $.ajax({
             url: 'recordings?id=' + id,
             type: 'GET',
@@ -189,54 +243,54 @@ $(document).ready(function() {
         });
     };
 
-	window.exportRecording = function(id) {
-		// Get profile name from the table
-		const profileName = $(`tr:has(button[onclick="exportRecording('${id}')"])`).find('td:first').text();
-		const filename = profileName.replace(/\s+/g, '_') + '.avi';
-		var recording = TimelapseRecordings[id];
-		if( recording.hasOwnProperty("fps") )
-			$('#exportFps').val( recording.fps);
-		else
-			$('#exportFps').val( 10 );
-		$('#exportFilename').val(filename);
-		$('#exportProfileId').val(id);
-		$('#exportModal').modal('show');
-	};
+    window.exportRecording = function(id) {
+        // Get profile name from the table
+        const profileName = $(`tr:has(button[onclick="exportRecording('${id}')"])`).find('td:first').text();
+        const filename = profileName.replace(/\s+/g, '_') + '.avi';
+        var recording = TimelapseRecordings[id];
+        if( recording.hasOwnProperty("fps") )
+            $('#exportFps').val( recording.fps);
+        else
+            $('#exportFps').val( 10 );
+        $('#exportFilename').val(filename);
+        $('#exportProfileId').val(id);
+        $('#exportModal').modal('show');
+    };
 
-	$('#exportDownloadBtn').click(function() {
-		const filename = $('#exportFilename').val();
-		const fps = $('#exportFps').val();
-		const profileId = $('#exportProfileId').val();
-		
-		// Create form for file download
-		const form = document.createElement('form');
-		form.method = 'GET';
-		form.action = 'export';
-		
-		// Add hidden fields for parameters
-		const idField = document.createElement('input');
-		idField.type = 'hidden';
-		idField.name = 'id';
-		idField.value = profileId;
-		form.appendChild(idField);
-		
-		const fpsField = document.createElement('input');
-		fpsField.type = 'hidden';
-		fpsField.name = 'fps';
-		fpsField.value = fps;
-		form.appendChild(fpsField);
-		
-		const filenameField = document.createElement('input');
-		filenameField.type = 'hidden';
-		filenameField.name = 'filename';
-		filenameField.value = filename;
-		form.appendChild(filenameField);
-		
-		document.body.appendChild(form);
-		form.submit();
-		document.body.removeChild(form);
-		$('#exportModal').modal('hide');
-	});
+    $('#exportDownloadBtn').click(function() {
+        const filename = $('#exportFilename').val();
+        const fps = $('#exportFps').val();
+        const profileId = $('#exportProfileId').val();
+
+        // Create form for file download
+        const form = document.createElement('form');
+        form.method = 'GET';
+        form.action = 'export';
+
+        // Add hidden fields for parameters
+        const idField = document.createElement('input');
+        idField.type = 'hidden';
+        idField.name = 'id';
+        idField.value = profileId;
+        form.appendChild(idField);
+
+        const fpsField = document.createElement('input');
+        fpsField.type = 'hidden';
+        fpsField.name = 'fps';
+        fpsField.value = fps;
+        form.appendChild(fpsField);
+
+        const filenameField = document.createElement('input');
+        filenameField.type = 'hidden';
+        filenameField.name = 'filename';
+        filenameField.value = filename;
+        form.appendChild(filenameField);
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+        $('#exportModal').modal('hide');
+    });
 
     window.flushRecording = function(id) {
         $.ajax({
@@ -248,19 +302,19 @@ $(document).ready(function() {
         });
     };
 
-	window.archiveRecording = function(profileId) {
-		$.ajax({
-			type: 'PUT',
-			url: `archive?id=${encodeURIComponent(profileId)}`,
-			success: function() {
-				alert('Recording archived successfully');
-				location.reload(); // Reload the page to update the recordings list
-			},
-			error: function() {
-				alert('Failed to archive recording');
-			}
-		});
-	}
+    window.archiveRecording = function(profileId) {
+        $.ajax({
+            type: 'PUT',
+            url: `archive?id=${encodeURIComponent(profileId)}`,
+            success: function() {
+                alert('Recording archived successfully');
+                location.reload(); // Reload the page to update the recordings list
+            },
+            error: function() {
+                alert('Failed to archive recording');
+            }
+        });
+    };
 
 
     $('#prevButton').click(function() {
@@ -286,7 +340,7 @@ $(document).ready(function() {
 
 function formatFileSize(bytes) {
     if (!bytes) return '0 KB';
-    
+
     if (bytes < 1024 * 1024) {
         return (bytes / 1024).toFixed(1) + ' KB';
     } else if (bytes < 1024 * 1024 * 1024) {

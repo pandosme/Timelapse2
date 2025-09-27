@@ -124,33 +124,87 @@ signal_handler(gpointer user_data) {
     return G_SOURCE_REMOVE;
 }
 
+static gboolean delayed_Init(gpointer user_data) {
+    const char* timelapse_dir = "/var/spool/storage/SD_DISK/timelapse2";
+    struct stat st;
+    int dir_ok = 0;  // Track overall directory status
+	LOG("SD Card will be initializing\n");
+
+	LOG("Check SD Card\n");
+    // 1. Check directory existence
+    if (stat(timelapse_dir, &st) == -1) {
+        if (errno == ENOENT) {
+            // Directory doesn't exist - attempt creation
+            LOG("Creating directory: %s", timelapse_dir);
+            if (mkdir(timelapse_dir, 0755) == -1) {
+				char error_message[256];
+				sprintf(error_message, "Creation failed: %s (%s)", timelapse_dir, strerror(errno) );
+                LOG_WARN("%s",error_message);
+				ACAP_STATUS_SetBool("sdcard","present",0);
+				ACAP_STATUS_SetString("sdcard","message",error_message);
+            } else {
+                LOG("Directory created successfully");
+                dir_ok = 1;  // Tentatively mark OK until access check
+				ACAP_STATUS_SetBool("sdcard","present",1);
+				ACAP_STATUS_SetString("sdcard","message","");
+            }
+        } else {
+            LOG_WARN("Directory check failed: %s (%s)", timelapse_dir, strerror(errno));
+        }
+    } else {
+        dir_ok = 1;  // Exists, check access next
+		ACAP_STATUS_SetBool("sdcard","present",1);
+		ACAP_STATUS_SetString("sdcard","message","");
+    }
+
+    // 2. Verify directory accessibility
+    if (dir_ok) {
+        if (access(timelapse_dir, R_OK | W_OK | X_OK) == -1) {
+			char error_message[256];
+			sprintf(error_message, "Directory inaccessible: %s (%s)", timelapse_dir, strerror(errno) );
+            LOG_WARN("%s",error_message);
+			ACAP_STATUS_SetBool("sdcard","present",0);
+			ACAP_STATUS_SetString("sdcard","message",error_message);
+            dir_ok = 0;
+        } else {
+            LOG("Directory verified: %s", timelapse_dir);
+			ACAP_STATUS_SetBool("sdcard","present",1);
+			ACAP_STATUS_SetString("sdcard","message","");
+        }
+    }
+
+    // 3. Update status and handle services
+    if (dir_ok) {
+        LOG("Timelapse settings OK\n");
+        Timelapse_Init(MAIN_Timelapse_Trigger);
+        LOG("Timelapse recording OK\n");
+        Recordings_Init();
+        LOG("Sun events OK\n");
+        SunEvents_Init();
+    } else {
+        LOG_WARN("Cannot initialize services - directory unavailable");
+    }
+
+    LOG("SD Card OK\n");
+
+    return G_SOURCE_REMOVE;
+}
+
 int main(void) {
     openlog(APP_PACKAGE, LOG_PID | LOG_CONS, LOG_USER);
     LOG("------ Starting %s ------\n",APP_PACKAGE);
     ACAP_STATUS_SetString("app", "status", "The application is starting");
 
 
-	// Create timelapse directory if it doesn't exist
-	const char* timelapse_dir = "/var/spool/storage/SD_DISK/timelapse2";
-	struct stat st = {0};
-	if (stat(timelapse_dir, &st) == -1) {
-		if (mkdir(timelapse_dir, 0755) == -1) {
-			ACAP_STATUS_SetBool("sdcard", "status", 0);
-			LOG_WARN("Failed to create directory %s\n", timelapse_dir);
-		} else {
-			ACAP_STATUS_SetBool("sdcard", "status", 1);
-			LOG("Created directory %s\n", timelapse_dir);
-		}
-	}
-
-    // Initialize ACAP and Timelapse
     ACAP(APP_PACKAGE, Settings_Updated_Callback);
-    Timelapse_Init(MAIN_Timelapse_Trigger);
-	Recordings_Init();
-    SunEvents_Init();
 
 	//Last resort for a corrupt file system on SD Card
     ACAP_HTTP_Node("reset", HTTP_Endpoint_Reset);
+
+	LOG("SD Card will be initialized in 10 seconds\n");
+	ACAP_STATUS_SetBool("sdcard","present",0);
+	ACAP_STATUS_SetString("sdcard","message","Intializaing SD Card");
+	g_timeout_add_seconds(6, delayed_Init, NULL);
 	
     // Create and run the main loop
 	main_loop = g_main_loop_new(NULL, FALSE);

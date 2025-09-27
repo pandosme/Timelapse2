@@ -90,6 +90,19 @@ List and fetch closed recordings.
 
 # History
 
+### 1.1.0 - September 27, 2025
+- It is now possible to auto-archive daily, weekly or monthly
+- Removal of archived recordings after retention period now works properly
+- Adjustements in GUI
+- On start, added info that SD Card initialization is ongoing.
+
+### 1.0.6 - September 18, 2025
+- Alternative method to check SD-Card
+- Ability to select any resolution the camera supports.
+
+### 1.0.5 - February 14, 2025
+- Fixed resolution selection in order to support multi-sensor cameras.
+
 ### 1.0.4 - December 14, 2025
 - Fixed sun recalculation.
 
