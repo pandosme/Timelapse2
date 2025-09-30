@@ -90,6 +90,9 @@ List and fetch closed recordings.
 
 # History
 
+### 1.1.2 - September 30, 2025
+- Fixed a bug that prevented auto-archive on daily, weekly or monthly
+
 ### 1.1.0 - September 27, 2025
 - It is now possible to auto-archive daily, weekly or monthly
 - Removal of archived recordings after retention period now works properly

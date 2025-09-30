@@ -153,7 +153,7 @@ static void save_archive_list();
 static void update_avi_fps(FILE* f, unsigned int fps);
 int Recordings_Delete_Archive(const char* filename);
 
-pthread_mutex_t recordings_mutex = PTHREAD_MUTEX_INITIALIZER;
+//pthread_mutex_t recordings_mutex = //pthread_mutex_INITIALIZER;
 
 static void write_avi_header(FILE* f, DWORD frames, DWORD totalJPEGSize, DWORD width, DWORD height, unsigned int fps) {
     AVI_HEADER header;
@@ -325,13 +325,13 @@ static void ensure_directory(const char *path) {
 }
 
 static cJSON* load_recordings(void) {
-	pthread_mutex_lock(&recordings_mutex);
+	//pthread_mutex_lock(&recordings_mutex);
     char path[PATH_MAX_LEN];
     sprintf(path, "/var/spool/storage/SD_DISK/timelapse2/recordings.json");
     
     FILE* file = fopen(path, "r");
     if (!file) {
-		pthread_mutex_unlock(&recordings_mutex);		
+		//pthread_mutex_unlock(&recordings_mutex);		
         return cJSON_CreateObject();
     }
     
@@ -342,7 +342,7 @@ static cJSON* load_recordings(void) {
     char* json = malloc(size + 1);
     if (!json) {
         fclose(file);
-		pthread_mutex_unlock(&recordings_mutex);		
+		//pthread_mutex_unlock(&recordings_mutex);		
         return cJSON_CreateObject();
     }
     
@@ -352,12 +352,13 @@ static cJSON* load_recordings(void) {
     
     cJSON* recordings = cJSON_Parse(json);
     free(json);
-	pthread_mutex_unlock(&recordings_mutex);    
+	//pthread_mutex_unlock(&recordings_mutex);    
     return recordings ? recordings : cJSON_CreateObject();
 }
 
 static void save_recordings(void) {
-	pthread_mutex_lock(&recordings_mutex);
+	LOG_TRACE("%s: Entry",__func__);
+	//pthread_mutex_lock(&recordings_mutex);
     char path[PATH_MAX_LEN];
     sprintf(path, "/var/spool/storage/SD_DISK/timelapse2/recordings.json");
     
@@ -370,7 +371,7 @@ static void save_recordings(void) {
         fclose(file);
     }
     free(json);
-	pthread_mutex_unlock(&recordings_mutex);
+	//pthread_mutex_unlock(&recordings_mutex);
 }
 
 static int append_file(const char *source, const char *destination) {
@@ -418,6 +419,7 @@ static void replace_spaces_with_underscores(char *str) {
 }
 
 static void load_archive_list() {
+	LOG_TRACE("%s: Entry",__func__);
     char path[PATH_MAX_LEN];
     snprintf(path, sizeof(path), "/var/spool/storage/SD_DISK/timelapse2/archive/recordings.json");
 
@@ -454,6 +456,7 @@ static void load_archive_list() {
 
 // Function to save the archive list to recordings.json
 static void save_archive_list() {
+	LOG_TRACE("%s: Entry",__func__);
     char path[PATH_MAX_LEN];
     snprintf(path, sizeof(path), "/var/spool/storage/SD_DISK/timelapse2/archive/recordings.json");
 
@@ -513,10 +516,10 @@ static void Retention_Cleanup() {
 }
 
 int Recordings_Clear(const char* profileId) {
-	pthread_mutex_lock(&recordings_mutex);
+	//pthread_mutex_lock(&recordings_mutex);
     if (!profileId) {
         LOG_WARN("Invalid profile ID\n");
-		pthread_mutex_unlock(&recordings_mutex);		
+		//pthread_mutex_unlock(&recordings_mutex);		
         return -1;
     }
 
@@ -551,7 +554,7 @@ int Recordings_Clear(const char* profileId) {
 
     // Recreate the directory for new recording
     ensure_profile_directory(profileId);
-	pthread_mutex_unlock(&recordings_mutex);
+	//pthread_mutex_unlock(&recordings_mutex);
     return 0;
 }
 
@@ -583,7 +586,7 @@ cJSON* Recordings_Get_Metadata(const char* profileId) {
 }
 
 int Recordings_Capture(cJSON* profile) {
-	pthread_mutex_lock(&recordings_mutex);
+	//pthread_mutex_lock(&recordings_mutex);
 
     if (!profile) return -1;
     const char* profileId = cJSON_GetObjectItem(profile, "id")->valuestring;
@@ -620,7 +623,7 @@ int Recordings_Capture(cJSON* profile) {
     if (error != NULL) {
         LOG_WARN("%s: Snapshot capture failed: %s\n", __func__, error->message);
         g_error_free(error);
-		pthread_mutex_unlock(&recordings_mutex);		
+		//pthread_mutex_unlock(&recordings_mutex);		
         return -1;
     }
 
@@ -630,7 +633,7 @@ int Recordings_Capture(cJSON* profile) {
 
 	if(!jpegData || ! jpegSize ) {
 		LOG_WARN("%s: Invalid capture data\n",__func__);
-		pthread_mutex_unlock(&recordings_mutex);		
+		//pthread_mutex_unlock(&recordings_mutex);		
 		return -1;
 	}
 
@@ -687,7 +690,7 @@ int Recordings_Capture(cJSON* profile) {
         if (aviFile) fclose(aviFile);
         if (indexFile) fclose(indexFile);
         g_object_unref(buffer);
-		pthread_mutex_unlock(&recordings_mutex);		
+		//pthread_mutex_unlock(&recordings_mutex);		
         return -1;
     }
 
@@ -721,7 +724,7 @@ int Recordings_Capture(cJSON* profile) {
 	LOG_TRACE("%s: Check auto archive %d > %d \n", __func__, totalJPEGSize, archiveSize);
 	if (totalJPEGSize >= archiveSize)
 		Recordings_Archive(profileId);
-	pthread_mutex_unlock(&recordings_mutex);
+	//pthread_mutex_unlock(&recordings_mutex);
     return 0;
 }
 
@@ -732,15 +735,18 @@ int Recordings_Archive(const char *profileID) {
     char idxFile[PATH_MAX_LEN];
     char archiveFilename[PATH_MAX_LEN];
 
-	pthread_mutex_lock(&recordings_mutex);
+	//pthread_mutex_lock(&recordings_mutex);
     // Check if archiving is already in progress
     
     // Validate input
     if (!profileID) {
         LOG_WARN("Invalid profile ID\n");
-		pthread_mutex_unlock(&recordings_mutex);		
+		//pthread_mutex_unlock(&recordings_mutex);		
         return -1;
     }
+
+	LOG_TRACE("%s: Entry %s",__func__,profileID);
+
     
     // Setup paths
     snprintf(profilePath, sizeof(profilePath), 
@@ -757,7 +763,7 @@ int Recordings_Archive(const char *profileID) {
     cJSON *recordingMetadata = Recordings_Get_Metadata(profileID);
     if (!recordingMetadata) {
         LOG_WARN("No metadata found for profile: %s\n", profileID);
-		pthread_mutex_unlock(&recordings_mutex);	
+		//pthread_mutex_unlock(&recordings_mutex);	
         return -1;
     }
     
@@ -765,7 +771,7 @@ int Recordings_Archive(const char *profileID) {
     cJSON *profile = Timelapse_Find_Profile_By_Id(profileID);
     if (!profile) {
         LOG_WARN("Profile not found for ID: %s\n", profileID);
-		pthread_mutex_unlock(&recordings_mutex);		
+		//pthread_mutex_unlock(&recordings_mutex);		
         return -1;
     }
     
@@ -788,7 +794,7 @@ int Recordings_Archive(const char *profileID) {
     FILE *archiveFile = fopen(archiveFilename, "wb");
     if (!archiveFile) {
         LOG_WARN("Failed to create archive file: %s\n", archiveFilename);
-		pthread_mutex_unlock(&recordings_mutex);		
+		//pthread_mutex_unlock(&recordings_mutex);		
         return -1;
     }
     
@@ -798,7 +804,7 @@ int Recordings_Archive(const char *profileID) {
         fclose(archiveFile);
         unlink(archiveFilename);
         LOG_WARN("Failed to open source AVI file: %s\n", aviFile);
-		pthread_mutex_unlock(&recordings_mutex);
+		//pthread_mutex_unlock(&recordings_mutex);
         return -1;
     }
     
@@ -811,7 +817,7 @@ int Recordings_Archive(const char *profileID) {
             fclose(archiveFile);
             unlink(archiveFilename);
             LOG_WARN("Failed to write to archive file\n");
-			pthread_mutex_unlock(&recordings_mutex);			
+			//pthread_mutex_unlock(&recordings_mutex);			
             return -1;
         }
     }
@@ -823,7 +829,7 @@ int Recordings_Archive(const char *profileID) {
         fclose(archiveFile);
         unlink(archiveFilename);
         LOG_WARN("Failed to open index file: %s\n", idxFile);
-		pthread_mutex_unlock(&recordings_mutex);
+		//pthread_mutex_unlock(&recordings_mutex);
 		return -1;
     }
     
@@ -833,7 +839,7 @@ int Recordings_Archive(const char *profileID) {
             fclose(archiveFile);
             unlink(archiveFilename);
             LOG_WARN("Failed to append index to archive\n");
-			pthread_mutex_unlock(&recordings_mutex);			
+			//pthread_mutex_unlock(&recordings_mutex);			
             return -1;
         }
     }
@@ -878,15 +884,15 @@ int Recordings_Archive(const char *profileID) {
     Recordings_Clear(profileID);
     
     LOG_TRACE("Successfully archived recording for Profile ID: %s\n", profileID);
-	pthread_mutex_unlock(&recordings_mutex);	
+	//pthread_mutex_unlock(&recordings_mutex);	
     return 0;
 }
 
 int Recordings_Delete_Archive(const char* filename) {
-	pthread_mutex_lock(&recordings_mutex);
+	//pthread_mutex_lock(&recordings_mutex);
     if (!filename) {
         LOG_WARN("%s: Missing filename\n", __func__);
-		pthread_mutex_unlock(&recordings_mutex);		
+		//pthread_mutex_unlock(&recordings_mutex);		
         return 0;
     }
 
@@ -924,7 +930,7 @@ int Recordings_Delete_Archive(const char* filename) {
         cJSON_Delete(newArchiveList);
 	}
 
-	pthread_mutex_unlock(&recordings_mutex);	
+	//pthread_mutex_unlock(&recordings_mutex);	
 
 	
     return 0;
@@ -1295,7 +1301,7 @@ static void HTTP_Endpoint_Test(const ACAP_HTTP_Response response, const ACAP_HTT
 
 void
 Recordings_Reset() {
-	pthread_mutex_lock(&recordings_mutex);	
+	//pthread_mutex_lock(&recordings_mutex);	
 	if( Recordings_Container )
 		cJSON_Delete(Recordings_Container);
 	Recordings_Container = cJSON_CreateObject();
@@ -1303,7 +1309,7 @@ Recordings_Reset() {
 	if( ArchiveList )
 		cJSON_Delete( ArchiveList );
 	ArchiveList = cJSON_CreateArray();
-	pthread_mutex_unlock(&recordings_mutex);	
+	//pthread_mutex_unlock(&recordings_mutex);	
 }
 
 // Helper reused for weekly split
@@ -1313,11 +1319,14 @@ static int get_week_of_year(struct tm *tm) {
 
 
 static gboolean check_midnight(gpointer user_data) {
+
     static bool did_trigger_today = false;
 
     GDateTime *now = g_date_time_new_now_local();
     int hour = g_date_time_get_hour(now);
     int minute = g_date_time_get_minute(now);
+
+LOG("Midnight: %d:%d", hour, minute);
 
     // If currently midnight [00:00]
     if (hour != 0 || minute != 0) {
@@ -1325,7 +1334,7 @@ static gboolean check_midnight(gpointer user_data) {
 		g_date_time_unref(now);
 		return TRUE; // Keep the timeout running
 	}
-	
+	LOG_TRACE("Midnight");	
     if (did_trigger_today) {
 		g_date_time_unref(now);
 		return TRUE; // Keep the timeout running
@@ -1347,16 +1356,23 @@ static gboolean check_midnight(gpointer user_data) {
 		doArchive = true;
 
 	if( doArchive ) {
+		LOG_TRACE("Archiving...");
+		cJSON* list = cJSON_CreateArray();
         cJSON *profile = Recordings_Container->child;
         while(profile) {
-            const char *profileID = cJSON_GetObjectItem(profile, "id")?cJSON_GetObjectItem(profile, "id")->valuestring : NULL;
-            if(profileID)
-                Recordings_Archive(profileID);
+			cJSON_AddItemToArray(list,cJSON_CreateString(profile->string));
+			profile = profile->next;
+		}
+		profile = list->child;
+		while(profile ) {
+			LOG_TRACE("Archiving: %s",profile->valuestring);
+            Recordings_Archive(profile->valuestring);
 			profile = profile->next;
 		}
 	}
 	Retention_Cleanup();
     g_date_time_unref(now);
+	LOG_TRACE("%s: Exit",__func__);
     return TRUE; // Keep the timeout running
 }
 

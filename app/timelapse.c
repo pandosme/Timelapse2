@@ -51,32 +51,33 @@ static void Cleanup_Timer(const char* id) {
     }
 }
 
-static void
-Setup_Timer(cJSON* profile) {
+// Enhanced null-check, consistent id handling, and logging added
+static void Setup_Timer(cJSON* profile) {
     const char* id = cJSON_GetObjectItem(profile, "id")->valuestring;
     cJSON* timer_obj = cJSON_GetObjectItem(profile, "timer");
-    
+
     if (!timer_obj || timer_obj->type != cJSON_Number) {
+        LOG_WARN("Setup_Timer: Skipping, no valid timer for profile %s\n", id);
         return;
     }
 
     TimelapseTimer* timer = g_hash_table_lookup(timelapse_timers, id);
     if (timer) {
-        // Remove existing timer
         if (timer->timer_source) {
             g_source_destroy(timer->timer_source);
             g_source_unref(timer->timer_source);
         }
-    } else {
-        timer = g_new0(TimelapseTimer, 1);
-        g_hash_table_insert(timelapse_timers, g_strdup(id), timer);
+        free(timer); // Free struct if managed outside hash
     }
+    timer = g_new0(TimelapseTimer, 1);
+    g_hash_table_insert(timelapse_timers, g_strdup(id), timer);
 
     timer->profile = profile;
     timer->interval = timer_obj->valueint;
     timer->timer_source = g_timeout_source_new_seconds(timer->interval);
     g_source_set_callback(timer->timer_source, Timer_Callback, timer, NULL);
     g_source_attach(timer->timer_source, NULL);
+	LOG("%s: Started repeating timer for %s every %d seconds\n", __func__, id, timer->interval);
 }
 
 void
@@ -264,7 +265,7 @@ Timelapse_Activate_Profile( cJSON* profile ) {
 	if(!TimelapseProfiles)
 		TimelapseProfiles = cJSON_CreateArray();
 
-	const char* profileId = cJSON_GetObjectItem(profile,"Id")?cJSON_GetObjectItem(profile,"Id")->valuestring:0;
+	const char* profileId = cJSON_GetObjectItem(profile,"id")?cJSON_GetObjectItem(profile,"id")->valuestring:0;
 	if( !profileId ) {
 		LOG_WARN("%s: Invalid in in profile\n",__func__);
 		return 0;
