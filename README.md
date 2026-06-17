@@ -89,6 +89,9 @@ List and fetch closed recordings.
 ---
 
 # History
+### 1.1.3 - June 17, 2026
+- Fixed error "Failed to read Archive".
+- Fixed a number stability bugs.
 
 ### 1.1.2 - September 30, 2025
 - Fixed a bug that prevented auto-archive on daily, weekly or monthly
