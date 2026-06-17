@@ -67,7 +67,6 @@ static void Setup_Timer(cJSON* profile) {
             g_source_destroy(timer->timer_source);
             g_source_unref(timer->timer_source);
         }
-        free(timer); // Free struct if managed outside hash
     }
     timer = g_new0(TimelapseTimer, 1);
     g_hash_table_insert(timelapse_timers, g_strdup(id), timer);

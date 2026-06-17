@@ -589,8 +589,8 @@ int Recordings_Capture(cJSON* profile) {
 	//pthread_mutex_lock(&recordings_mutex);
 
     if (!profile) return -1;
-    const char* profileId = cJSON_GetObjectItem(profile, "id")->valuestring;
-    const char* resolution = cJSON_GetObjectItem(profile, "resolution")->valuestring;
+    const char* profileId = cJSON_GetObjectItem(profile, "id") ? cJSON_GetObjectItem(profile, "id")->valuestring : NULL;
+    const char* resolution = cJSON_GetObjectItem(profile, "resolution") ? cJSON_GetObjectItem(profile, "resolution")->valuestring : NULL;
     if (!profileId || !resolution) return -1;
 
 
@@ -776,7 +776,12 @@ int Recordings_Archive(const char *profileID) {
     }
     
     // Create archive filename
-    const char *profileName = cJSON_GetObjectItem(profile, "name")->valuestring;
+    cJSON *nameItem = cJSON_GetObjectItem(profile, "name");
+    if (!nameItem || !nameItem->valuestring) {
+        LOG_WARN("%s: Profile missing 'name' field: %s\n", __func__, profileID);
+        return -1;
+    }
+    const char *profileName = nameItem->valuestring;
     char sanitizedProfileName[PATH_MAX_LEN];
     strncpy(sanitizedProfileName, profileName, PATH_MAX_LEN - 1);
     sanitizedProfileName[PATH_MAX_LEN - 1] = '\0';
@@ -790,8 +795,8 @@ int Recordings_Archive(const char *profileID) {
              timeinfo->tm_year + 1900, timeinfo->tm_mon + 1,
              timeinfo->tm_mday, timeinfo->tm_hour, timeinfo->tm_min);
     
-    // Create archive file
-    FILE *archiveFile = fopen(archiveFilename, "wb");
+    // Create archive file (wb+ so we can seek back to patch the RIFF size)
+    FILE *archiveFile = fopen(archiveFilename, "wb+");
     if (!archiveFile) {
         LOG_WARN("Failed to create archive file: %s\n", archiveFilename);
 		//pthread_mutex_unlock(&recordings_mutex);		
@@ -822,7 +827,8 @@ int Recordings_Archive(const char *profileID) {
         }
     }
     fclose(src);
-    
+    long aviSize = ftell(archiveFile);
+
     // Append index file
     FILE *idxSrc = fopen(idxFile, "rb");
     if (!idxSrc) {
@@ -832,18 +838,24 @@ int Recordings_Archive(const char *profileID) {
 		//pthread_mutex_unlock(&recordings_mutex);
 		return -1;
     }
-    
+
     while ((bytesRead = fread(buffer, 1, sizeof(buffer), idxSrc)) > 0) {
         if (fwrite(buffer, 1, bytesRead, archiveFile) != bytesRead) {
             fclose(idxSrc);
             fclose(archiveFile);
             unlink(archiveFilename);
             LOG_WARN("Failed to append index to archive\n");
-			//pthread_mutex_unlock(&recordings_mutex);			
+			//pthread_mutex_unlock(&recordings_mutex);
             return -1;
         }
     }
     fclose(idxSrc);
+
+    // Patch RIFF size at offset 4 to cover the appended index
+    long totalSize = ftell(archiveFile);
+    DWORD newRiffSize = LILEND4((DWORD)(totalSize - 8));
+    fseek(archiveFile, 4, SEEK_SET);
+    fwrite(&newRiffSize, sizeof(DWORD), 1, archiveFile);
     fclose(archiveFile);
     
     // Update archive list
@@ -851,21 +863,28 @@ int Recordings_Archive(const char *profileID) {
         load_archive_list();
     }
     
+    // Validate metadata fields before creating archive entry
+    cJSON *sizeItem   = cJSON_GetObjectItem(recordingMetadata, "size");
+    cJSON *imagesItem = cJSON_GetObjectItem(recordingMetadata, "images");
+    cJSON *fpsItem    = cJSON_GetObjectItem(recordingMetadata, "fps");
+    cJSON *firstItem  = cJSON_GetObjectItem(recordingMetadata, "first");
+    cJSON *lastItem   = cJSON_GetObjectItem(recordingMetadata, "last");
+    if (!sizeItem || !imagesItem || !fpsItem || !firstItem || !lastItem) {
+        LOG_WARN("%s: Incomplete metadata for profile %s, removing archive\n", __func__, profileID);
+        unlink(archiveFilename);
+        return -1;
+    }
+
     // Create archive entry
     cJSON *recordingInfo = cJSON_CreateObject();
     cJSON_AddStringToObject(recordingInfo, "id", profileID);
-    cJSON_AddStringToObject(recordingInfo, "filename", 
+    cJSON_AddStringToObject(recordingInfo, "filename",
                            strrchr(archiveFilename, '/') + 1);
-    cJSON_AddNumberToObject(recordingInfo, "size", 
-        cJSON_GetObjectItem(recordingMetadata, "size")->valuedouble);
-    cJSON_AddNumberToObject(recordingInfo, "frames", 
-        cJSON_GetObjectItem(recordingMetadata, "images")->valueint);
-    cJSON_AddNumberToObject(recordingInfo, "fps", 
-        cJSON_GetObjectItem(recordingMetadata, "fps")->valueint);
-    cJSON_AddNumberToObject(recordingInfo, "first", 
-        cJSON_GetObjectItem(recordingMetadata, "first")->valuedouble);
-    cJSON_AddNumberToObject(recordingInfo, "last", 
-        cJSON_GetObjectItem(recordingMetadata, "last")->valuedouble);
+    cJSON_AddNumberToObject(recordingInfo, "size",   sizeItem->valuedouble);
+    cJSON_AddNumberToObject(recordingInfo, "frames", imagesItem->valueint);
+    cJSON_AddNumberToObject(recordingInfo, "fps",    fpsItem->valueint);
+    cJSON_AddNumberToObject(recordingInfo, "first",  firstItem->valuedouble);
+    cJSON_AddNumberToObject(recordingInfo, "last",   lastItem->valuedouble);
     
     // Add to archive list and save
     cJSON_AddItemToArray(ArchiveList, recordingInfo);
@@ -930,10 +949,10 @@ int Recordings_Delete_Archive(const char* filename) {
         cJSON_Delete(newArchiveList);
 	}
 
-	//pthread_mutex_unlock(&recordings_mutex);	
+	//pthread_mutex_unlock(&recordings_mutex);
 
-	
-    return 0;
+
+    return found;
 }
 
 static void
@@ -1309,7 +1328,8 @@ Recordings_Reset() {
 	if( ArchiveList )
 		cJSON_Delete( ArchiveList );
 	ArchiveList = cJSON_CreateArray();
-	//pthread_mutex_unlock(&recordings_mutex);	
+	save_archive_list();
+	//pthread_mutex_unlock(&recordings_mutex);
 }
 
 // Helper reused for weekly split
@@ -1326,7 +1346,7 @@ static gboolean check_midnight(gpointer user_data) {
     int hour = g_date_time_get_hour(now);
     int minute = g_date_time_get_minute(now);
 
-LOG("Midnight: %d:%d", hour, minute);
+LOG_TRACE("Midnight check: %d:%d", hour, minute);
 
     // If currently midnight [00:00]
     if (hour != 0 || minute != 0) {

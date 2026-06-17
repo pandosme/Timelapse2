@@ -124,6 +124,16 @@ $(document).ready(function() {
     // Load archive list
     loadArchiveList();
 
+    // Event delegation for archive table buttons (avoids XSS from inline onclick)
+    $('#recordings-list').on('click', 'button[data-filename]', function() {
+        const filename = $(this).data('filename');
+        if ($(this).hasClass('btn-primary')) {
+            downloadArchive(filename);
+        } else {
+            deleteArchive(filename);
+        }
+    });
+
     // Handle archive size change
     $('#archiveSize').change(function() {
         const size = $(this).val();
@@ -172,17 +182,18 @@ function loadArchiveList() {
 
             archives.forEach(archive => {
                 const row = $('<tr>');
-                row.html(
-                    '<td>' + archive.filename + '</td>' +
-                    '<td>' + archive.frames + '</td>' +
-                    '<td>' + formatFileSize(archive.size) + '</td>' +
-                    '<td>' + formatDate(archive.last) + '</td>' +
-                    '<td>' + formatDate(archive.first) + '</td>' +
-                    '<td>' +
-                    '<button class="btn btn-sm btn-primary me-1" onclick="downloadArchive(\'' + archive.filename + '\')">Download</button>' +
-                    '<button class="btn btn-sm btn-danger" onclick="deleteArchive(\'' + archive.filename + '\')">Delete</button>' +
-                    '</td>'
-                );
+                const filename = archive.filename;
+
+                const dlBtn = $('<button class="btn btn-sm btn-primary me-1">').text('Download').attr('data-filename', filename);
+                const delBtn = $('<button class="btn btn-sm btn-danger">').text('Delete').attr('data-filename', filename);
+                const actionTd = $('<td>').append(dlBtn).append(delBtn);
+
+                row.append($('<td>').text(filename))
+                   .append($('<td>').text(archive.frames))
+                   .append($('<td>').text(formatFileSize(archive.size)))
+                   .append($('<td>').text(formatDate(archive.last)))
+                   .append($('<td>').text(formatDate(archive.first)))
+                   .append(actionTd);
                 tbody.append(row);
             });
         },

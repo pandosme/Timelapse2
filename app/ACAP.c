@@ -616,9 +616,10 @@ int ACAP_HTTP_Respond_JSON(ACAP_HTTP_Response response, cJSON* object) {
         return 0;
     }
 
+    int len = (int)strlen(jsonString);
     int result = ACAP_HTTP_Header_JSON(response) &&
-                 ACAP_HTTP_Respond_String(response, "%s", jsonString);
-    
+                 (FCGX_PutStr(jsonString, len, response->out) == len);
+
     free(jsonString);
     return result;
 }
