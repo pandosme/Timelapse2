@@ -2,7 +2,7 @@
 
 ## Timelapse 3 Notice
 
-- Timelapse Version 3 is available at https://github.com/pandosme/Timelapse3.
+- Timelapse Version 3 is available in the [Timelapse Version 3 repository](https://github.com/pandosme/Timelapse3).
 - Active feature development for Timelapse 2 has stopped. Bug fixes and maintenance will continue.
 - Timelapse 2 will not be AXIS-signed.
 - Timelapse 3 does not support cameras based on armv7hf.
